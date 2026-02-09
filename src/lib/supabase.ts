@@ -19,6 +19,7 @@ export interface RecipeStep {
     step_number: number;
     description: string;
     images?: string[]; // 다중 이미지 지원을 위해 배열로 변경
+    image_url?: string; // 하위 호환성 (단일 이미지 시절 데이터)
 }
 
 // ====== 장보기 일정 타입 ======
