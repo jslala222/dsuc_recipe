@@ -85,7 +85,7 @@ export default function StartupPage() {
                     .update(formData)
                     .eq('id', editingLog.id);
                 if (error) throw error;
-                setLogs(prev => prev.map(l => l.id === editingLog.id ? { ...l, ...formData } : l));
+                setLogs(prev => prev.map(l => l.id === editingLog.id ? { ...l, ...formData, status: formData.status as StartupLog['status'] } : l));
             } else {
                 // 추가
                 const { data, error } = await supabase
