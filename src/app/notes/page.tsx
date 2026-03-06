@@ -115,9 +115,9 @@ export default function NotesPage() {
                 </div>
             )}
 
-            {/* 메모 목록 (카드 그리드) */}
+            {/* 메모 목록 (카드 그리드) - 모바일 2열 */}
             {!isLoading && filteredNotes.length > 0 && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                     {filteredNotes.map(note => (
                         <Link
                             key={note.id}
