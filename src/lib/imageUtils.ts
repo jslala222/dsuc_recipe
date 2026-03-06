@@ -16,19 +16,23 @@ const IMAGE_CONFIG = {
  * 파일을 받아서 리사이즈된 Blob을 반환합니다.
  * 
  * @param file - 원본 이미지 파일
+ * @param options - 리사이즈 옵션 (선택)
  * @returns 리사이즈된 이미지 Blob과 미리보기 URL
- * 
- * @example
- * const { blob, previewUrl } = await resizeImage(file);
- * console.log(`원본: ${file.size} → 리사이즈: ${blob.size}`);
  */
-export async function resizeImage(file: File): Promise<{
+export async function resizeImage(
+    file: File,
+    options?: { maxWidth?: number; maxHeight?: number; quality?: number }
+): Promise<{
     blob: Blob;
     previewUrl: string;
     originalSize: number;
     newSize: number;
 }> {
     return new Promise((resolve, reject) => {
+        const maxWidth = options?.maxWidth ?? IMAGE_CONFIG.maxWidth;
+        const maxHeight = options?.maxHeight ?? IMAGE_CONFIG.maxHeight;
+        const quality = options?.quality ?? IMAGE_CONFIG.quality;
+
         // 1. 파일을 읽어서 이미지로 변환
         const reader = new FileReader();
 
@@ -49,14 +53,14 @@ export async function resizeImage(file: File): Promise<{
                     // 3. 비율 유지하면서 크기 계산
                     let { width, height } = img;
 
-                    if (width > IMAGE_CONFIG.maxWidth) {
-                        height = (height * IMAGE_CONFIG.maxWidth) / width;
-                        width = IMAGE_CONFIG.maxWidth;
+                    if (width > maxWidth) {
+                        height = (height * maxWidth) / width;
+                        width = maxWidth;
                     }
 
-                    if (height > IMAGE_CONFIG.maxHeight) {
-                        width = (width * IMAGE_CONFIG.maxHeight) / height;
-                        height = IMAGE_CONFIG.maxHeight;
+                    if (height > maxHeight) {
+                        width = (width * maxHeight) / height;
+                        height = maxHeight;
                     }
 
                     // 4. 캔버스 크기 설정 및 이미지 그리기
@@ -82,7 +86,7 @@ export async function resizeImage(file: File): Promise<{
                             });
                         },
                         IMAGE_CONFIG.mimeType,
-                        IMAGE_CONFIG.quality
+                        quality
                     );
                 } catch (error) {
                     reject(error);

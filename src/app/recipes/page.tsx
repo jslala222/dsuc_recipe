@@ -7,7 +7,7 @@ import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { Plus, Search, ChefHat, Loader2 } from 'lucide-react';
 import RecipeCard from '@/components/RecipeCard';
-import { supabase, Recipe } from '@/lib/supabase';
+import { supabase, Recipe, TABLE_RECIPES } from '@/lib/supabase';
 
 // 카테고리 목록
 const categories = ['전체', '한식', '양식', '중식', '일식', '디저트', '음료', '기타'];
@@ -39,7 +39,7 @@ export default function RecipesPage() {
 
             try {
                 const fetchPromise = supabase
-                    .from('recipes')
+                    .from(TABLE_RECIPES)
                     .select('*')
                     .order('created_at', { ascending: false });
 

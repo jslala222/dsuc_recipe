@@ -84,19 +84,23 @@ export default function Home() {
     return (
         <div className="space-y-8">
             {/* 환영 메시지 */}
-            <section className="bg-gradient-to-br from-primary-500 to-primary-600 rounded-2xl p-6 md:p-8 text-white shadow-lg">
-                <div className="flex items-center gap-4 mb-4">
-                    <div className="w-14 h-14 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur">
+            <section className="bg-gradient-to-br from-primary-500 to-primary-600 rounded-2xl p-6 md:p-8 text-white shadow-lg relative overflow-hidden">
+                {/* 배경 패턴 효과 */}
+                <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-2xl"></div>
+                <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full -ml-12 -mb-12 blur-xl"></div>
+
+                <div className="relative flex items-center gap-4 mb-4">
+                    <div className="w-14 h-14 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur ring-1 ring-white/30 shadow-inner">
                         <ChefHat className="w-8 h-8" />
                     </div>
                     <div>
-                        <h1 className="text-2xl md:text-3xl font-bold">나만의레시피</h1>
-                        <p className="text-primary-100">사장님을 위한 창업 준비 올인원 관리 🚀 (자동 배포 테스트 성공!)</p>
+                        <h1 className="text-2xl md:text-3xl font-bold tracking-tight">나만의 레시피</h1>
+                        <p className="text-primary-100 flex items-center gap-1">모든 창업 준비를 한 곳에 담았습니다 ✨</p>
                     </div>
                 </div>
-                <p className="text-primary-100 leading-relaxed">
-                    배운 요리법, 시장 정보, 창업 준비까지<br />
-                    모든 것을 한 곳에서 관리하세요 ✨
+                <p className="relative text-white/90 leading-relaxed font-medium">
+                    아내를 위한 소중한 레시피부터 시장 조사와 고객 관리까지,<br />
+                    사장님의 꿈이 현실이 되는 모든 과정을 함께 기록하세요. 💚
                 </p>
             </section>
 

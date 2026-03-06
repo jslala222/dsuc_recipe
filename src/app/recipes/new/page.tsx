@@ -7,7 +7,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Save, ChefHat, ImagePlus, Loader2 } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
+import { supabase, TABLE_RECIPES, TABLE_RECIPE_STEPS } from '@/lib/supabase';
 
 const categories = ['한식', '양식', '중식', '일식', '디저트', '음료', '기타'];
 const difficulties = ['쉬움', '보통', '어려움'];
@@ -130,7 +130,7 @@ export default function NewRecipePage() {
             const instructionsSummary = validSteps.map((s, i) => `${i + 1}. ${s.description}`).join('\n');
 
             const { data: recipeData, error: recipeError } = await supabase
-                .from('recipes')
+                .from(TABLE_RECIPES)
                 .insert([{
                     ...formData,
                     instructions: instructionsSummary,
@@ -150,7 +150,7 @@ export default function NewRecipePage() {
             }));
 
             const { error: stepsError } = await supabase
-                .from('recipe_steps')
+                .from(TABLE_RECIPE_STEPS)
                 .insert(stepsToInsert);
 
             if (stepsError) throw stepsError;

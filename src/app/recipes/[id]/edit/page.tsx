@@ -7,7 +7,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Save, ChefHat, ImagePlus, Loader2 } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
+import { supabase, TABLE_RECIPES, TABLE_RECIPE_STEPS } from '@/lib/supabase';
 
 const categories = ['한식', '양식', '중식', '일식', '디저트', '음료', '기타'];
 const difficulties = ['쉬움', '보통', '어려움'];
@@ -42,7 +42,7 @@ export default function EditRecipePage() {
             try {
                 // 1. 레시피 기본 정보 조회
                 const { data: recipeData, error: recipeError } = await supabase
-                    .from('recipes')
+                    .from(TABLE_RECIPES)
                     .select('*')
                     .eq('id', params.id)
                     .single();
@@ -63,7 +63,7 @@ export default function EditRecipePage() {
 
                     // 2. 조리 순서 (Steps) 조회
                     const { data: stepsData, error: stepsError } = await supabase
-                        .from('recipe_steps')
+                        .from(TABLE_RECIPE_STEPS)
                         .select('*')
                         .eq('recipe_id', params.id)
                         .order('step_number', { ascending: true });
@@ -186,7 +186,7 @@ export default function EditRecipePage() {
             const instructionsSummary = validSteps.map((s, i) => `${i + 1}. ${s.description}`).join('\n');
 
             const { error: recipeError } = await supabase
-                .from('recipes')
+                .from(TABLE_RECIPES)
                 .update({
                     ...formData,
                     instructions: instructionsSummary,
@@ -198,7 +198,7 @@ export default function EditRecipePage() {
 
             // 2. 조리 순서(Steps) 업데이트 (기존 것 삭제 후 재삽입 - 단순화 전략)
             // 주의: 실제 서비스에선 ID 유지를 위해 upsert를 쓰거나 soft delete를 하지만, 여기선 간단히 교체
-            await supabase.from('recipe_steps').delete().eq('recipe_id', params.id);
+            await supabase.from(TABLE_RECIPE_STEPS).delete().eq('recipe_id', params.id);
 
             const stepsToInsert = validSteps.map((step, index) => ({
                 recipe_id: params.id,
@@ -208,7 +208,7 @@ export default function EditRecipePage() {
             }));
 
             const { error: stepsError } = await supabase
-                .from('recipe_steps')
+                .from(TABLE_RECIPE_STEPS)
                 .insert(stepsToInsert);
 
             if (stepsError) throw stepsError;

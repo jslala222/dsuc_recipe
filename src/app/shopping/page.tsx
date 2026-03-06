@@ -6,7 +6,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { Plus, Search, ShoppingCart, Loader2, Calendar, MapPin, Check, Clock, TrendingUp, TrendingDown } from 'lucide-react';
-import { supabase, ShoppingTrip } from '@/lib/supabase';
+import { supabase, ShoppingTrip, TABLE_SHOPPING_TRIPS } from '@/lib/supabase';
 
 export default function ShoppingPage() {
     const [searchQuery, setSearchQuery] = useState('');
@@ -26,7 +26,7 @@ export default function ShoppingPage() {
 
         try {
             const { data, error } = await supabase
-                .from('recipe_shopping_trips')
+                .from(TABLE_SHOPPING_TRIPS)
                 .select('*')
                 .order('date', { ascending: false });
 
@@ -106,8 +106,8 @@ export default function ShoppingPage() {
                         <p className="text-lg font-bold text-orange-600">₩{formatMoney(monthlyStats.actual)}</p>
                     </div>
                     <div className={`px-3 py-1 rounded-full text-sm font-medium flex items-center gap-1 ${monthlyStats.actual <= monthlyStats.expected
-                            ? 'bg-green-100 text-green-700'
-                            : 'bg-red-100 text-red-700'
+                        ? 'bg-green-100 text-green-700'
+                        : 'bg-red-100 text-red-700'
                         }`}>
                         {monthlyStats.actual <= monthlyStats.expected
                             ? <TrendingDown className="w-4 h-4" />
@@ -188,8 +188,8 @@ export default function ShoppingPage() {
                                     <div className="flex-1">
                                         <div className="flex items-center gap-2 mb-1">
                                             <span className={`text-xs px-2 py-0.5 rounded-full ${trip.status === '완료'
-                                                    ? 'bg-green-100 text-green-700'
-                                                    : 'bg-blue-100 text-blue-700'
+                                                ? 'bg-green-100 text-green-700'
+                                                : 'bg-blue-100 text-blue-700'
                                                 }`}>
                                                 {trip.status === '완료' ? <Check className="w-3 h-3 inline" /> : <Clock className="w-3 h-3 inline" />}
                                                 {trip.status}

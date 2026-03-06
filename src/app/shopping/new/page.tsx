@@ -7,7 +7,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Save, Plus, Trash2, Loader2 } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
+import { supabase, TABLE_SHOPPING_TRIPS, TABLE_SHOPPING_ITEMS } from '@/lib/supabase';
 
 const categories = ['채소', '육류', '해산물', '양념', '주류', '과일', '곡물', '유제품', '기타'];
 const units = ['kg', 'g', '개', '박스', '팩', '봉', '병', '캔', 'L', 'ml'];
@@ -80,7 +80,7 @@ export default function NewShoppingPage() {
         try {
             // 1. 장보기 일정 생성
             const { data: tripResult, error: tripError } = await supabase
-                .from('recipe_shopping_trips')
+                .from(TABLE_SHOPPING_TRIPS)
                 .insert([{
                     date: tripData.date,
                     place: tripData.place,
@@ -98,7 +98,7 @@ export default function NewShoppingPage() {
             const validItems = items.filter(item => item.name.trim());
             if (validItems.length > 0) {
                 const { error: itemsError } = await supabase
-                    .from('recipe_shopping_items')
+                    .from(TABLE_SHOPPING_ITEMS)
                     .insert(validItems.map(item => ({
                         trip_id: tripResult.id,
                         name: item.name,
@@ -115,9 +115,9 @@ export default function NewShoppingPage() {
             }
 
             router.push(`/shopping/${tripResult.id}`);
-        } catch (err) {
+        } catch (err: any) {
             console.error('저장 실패:', err);
-            alert('저장 중 문제가 발생했어요.');
+            alert(`저장 중 문제가 발생했어요: ${err.message || '알 수 없는 오류'}`);
         } finally {
             setIsSaving(false);
         }

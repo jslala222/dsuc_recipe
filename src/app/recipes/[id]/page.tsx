@@ -17,7 +17,7 @@ import {
     ShoppingBasket,
     Loader2
 } from 'lucide-react';
-import { supabase, Recipe } from '@/lib/supabase';
+import { supabase, Recipe, TABLE_RECIPES, TABLE_RECIPE_STEPS } from '@/lib/supabase';
 
 // 난이도별 색상
 const difficultyColors: Record<string, string> = {
@@ -26,32 +26,25 @@ const difficultyColors: Record<string, string> = {
     '어려움': 'bg-red-100 text-red-700',
 };
 
-export default function RecipeDetailPage() {
-    const params = useParams();
+export default function RecipeDetailPage({ params }: { params: { id: string } }) {
     const router = useRouter();
     const [recipe, setRecipe] = useState<Recipe | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
 
     useEffect(() => {
-        let isMounted = true;
-
         async function fetchRecipe() {
             if (!supabase || !params.id) {
-                if (isMounted) setIsLoading(false);
+                setIsLoading(false);
                 return;
             }
-
-            // 5초 타임아웃 설정
-            const timeoutPromise = new Promise((_, reject) =>
-                setTimeout(() => reject(new Error('시간 초과')), 5000)
-            );
 
             try {
                 // 1. 기본 정보 조회
                 const { data: recipeData, error: recipeError } = await supabase
-                    .from('recipes')
+                    .from(TABLE_RECIPES)
                     .select('*')
                     .eq('id', params.id)
                     .single();
@@ -60,31 +53,28 @@ export default function RecipeDetailPage() {
 
                 // 2. Steps 조회 (다중 이미지 포함)
                 const { data: stepsData, error: stepsError } = await supabase
-                    .from('recipe_steps')
+                    .from(TABLE_RECIPE_STEPS)
                     .select('*')
                     .eq('recipe_id', params.id)
                     .order('step_number', { ascending: true });
 
-                // 에러는 무시하고 진행
+                if (stepsError) throw stepsError;
 
                 const finalRecipe = {
                     ...recipeData,
                     steps: stepsData || []
                 };
 
-                if (isMounted) setRecipe(finalRecipe);
+                setRecipe(finalRecipe);
             } catch (err) {
                 console.error('레시피 불러오기 실패:', err);
+                setError('레시피를 불러올 수 없습니다.');
             } finally {
-                if (isMounted) setIsLoading(false);
+                setIsLoading(false);
             }
         }
 
         fetchRecipe();
-
-        return () => {
-            isMounted = false;
-        };
     }, [params.id]);
 
     const handleDelete = async () => {
@@ -93,7 +83,7 @@ export default function RecipeDetailPage() {
         setIsDeleting(true);
         try {
             const { error } = await supabase
-                .from('recipes')
+                .from(TABLE_RECIPES)
                 .delete()
                 .eq('id', recipe.id);
 

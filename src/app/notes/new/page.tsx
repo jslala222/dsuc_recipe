@@ -7,7 +7,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Save, ImagePlus, X, Loader2 } from 'lucide-react';
-import { supabase, uploadRecipeImage } from '@/lib/supabase';
+import { supabase, uploadRecipeImage, TABLE_NOTES } from '@/lib/supabase';
 
 const categories = ['일상', '아이디어', '중요', '가족', '여행', '기타'];
 
@@ -62,7 +62,7 @@ export default function NewNotePage() {
         setIsSaving(true);
         try {
             const { data, error } = await supabase
-                .from('recipe_notes')
+                .from(TABLE_NOTES)
                 .insert([{
                     title: formData.title,
                     content: formData.content,
@@ -152,8 +152,8 @@ export default function NewNotePage() {
                                 type="button"
                                 onClick={() => setFormData(prev => ({ ...prev, category: cat }))}
                                 className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${formData.category === cat
-                                        ? 'bg-amber-500 text-white'
-                                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                    ? 'bg-amber-500 text-white'
+                                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                                     }`}
                             >
                                 {cat}

@@ -6,7 +6,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { Plus, Search, StickyNote, Loader2, Calendar, ImageIcon } from 'lucide-react';
-import { supabase, Note } from '@/lib/supabase';
+import { supabase, TABLE_NOTES, Note } from '@/lib/supabase';
 
 const categories = ['전체', '일상', '아이디어', '중요', '가족', '여행', '기타'];
 
@@ -28,7 +28,7 @@ export default function NotesPage() {
 
         try {
             const { data, error } = await supabase
-                .from('recipe_notes')
+                .from(TABLE_NOTES)
                 .select('*')
                 .order('updated_at', { ascending: false });
 
@@ -43,8 +43,10 @@ export default function NotesPage() {
 
     const filteredNotes = useMemo(() => {
         return notes.filter(note => {
-            const matchesSearch = note.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                note.content?.toLowerCase().includes(searchQuery.toLowerCase());
+            const title = note.title || '';
+            const content = note.content || '';
+            const matchesSearch = title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                content.toLowerCase().includes(searchQuery.toLowerCase());
             const matchesCategory = selectedCategory === '전체' || note.category === selectedCategory;
             return matchesSearch && matchesCategory;
         });

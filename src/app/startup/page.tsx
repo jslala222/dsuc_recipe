@@ -1,35 +1,42 @@
 // Path: src/app/startup/page.tsx
-// Description: 창업 준비 로그 - 입지 분석, 인테리어, 행정 절차 기록
+// Description: 창업 준비 로그 목록 - 상권 분석, 인테리어 등 기록 모음
 
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { Plus, Search, Building2, Loader2, Calendar, CheckCircle, Clock, Pause, Trash2, X, Edit } from 'lucide-react';
-import { supabase, StartupLog } from '@/lib/supabase';
+import Link from 'next/link';
+import { Plus, Search, Building2, MapPin, Calendar, Camera, FileText, Loader2 } from 'lucide-react';
+import { supabase, TABLE_STARTUP_LOGS } from '@/lib/supabase';
 
-const categories = ['전체', '입지분석', '인테리어', '행정절차', '자금계획', '메뉴개발', '기타'];
-const statusOptions = ['진행중', '완료', '보류'];
+// 로그 데이터 타입 정의
+interface StartupLog {
+    id: string;
+    title: string;
+    category: string;
+    content: string;
+    images: string[] | null;
+    date: string;
+    created_at: string;
+}
 
-const statusConfig: Record<string, { icon: React.ReactNode; color: string }> = {
-    '진행중': { icon: <Clock className="w-4 h-4" />, color: 'bg-blue-100 text-blue-700' },
-    '완료': { icon: <CheckCircle className="w-4 h-4" />, color: 'bg-green-100 text-green-700' },
-    '보류': { icon: <Pause className="w-4 h-4" />, color: 'bg-gray-100 text-gray-600' },
-};
+const categories = ['전체', '상권', '인테리어', '아이디어', '행정', '기타'];
+
+// 카테고리별 아이콘/색상 매핑
+function getCategoryStyle(category: string) {
+    switch (category) {
+        case '상권': return { icon: MapPin, color: 'text-red-500', bg: 'bg-red-50' };
+        case '인테리어': return { icon: Building2, color: 'text-blue-500', bg: 'bg-blue-50' };
+        case '아이디어': return { icon: Camera, color: 'text-yellow-500', bg: 'bg-yellow-50' };
+        case '행정': return { icon: FileText, color: 'text-purple-500', bg: 'bg-purple-50' };
+        default: return { icon: Building2, color: 'text-gray-500', bg: 'bg-gray-50' };
+    }
+}
 
 export default function StartupPage() {
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedCategory, setSelectedCategory] = useState('전체');
     const [logs, setLogs] = useState<StartupLog[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    const [showModal, setShowModal] = useState(false);
-    const [editingLog, setEditingLog] = useState<StartupLog | null>(null);
-    const [formData, setFormData] = useState({
-        title: '',
-        category: '기타',
-        content: '',
-        status: '진행중',
-        due_date: ''
-    });
 
     useEffect(() => {
         fetchLogs();
@@ -43,9 +50,9 @@ export default function StartupPage() {
 
         try {
             const { data, error } = await supabase
-                .from('recipe_startup')
+                .from(TABLE_STARTUP_LOGS)
                 .select('*')
-                .order('created_at', { ascending: false });
+                .order('date', { ascending: false });
 
             if (error) throw error;
             setLogs(data || []);
@@ -56,68 +63,10 @@ export default function StartupPage() {
         }
     }
 
-    function openAddModal() {
-        setEditingLog(null);
-        setFormData({ title: '', category: '기타', content: '', status: '진행중', due_date: '' });
-        setShowModal(true);
-    }
-
-    function openEditModal(log: StartupLog) {
-        setEditingLog(log);
-        setFormData({
-            title: log.title,
-            category: log.category,
-            content: log.content,
-            status: log.status,
-            due_date: log.due_date || ''
-        });
-        setShowModal(true);
-    }
-
-    async function saveLog() {
-        if (!supabase || !formData.title.trim()) return;
-
-        try {
-            if (editingLog) {
-                // 수정
-                const { error } = await supabase
-                    .from('recipe_startup')
-                    .update(formData)
-                    .eq('id', editingLog.id);
-                if (error) throw error;
-                setLogs(prev => prev.map(l => l.id === editingLog.id ? { ...l, ...formData, status: formData.status as StartupLog['status'] } : l));
-            } else {
-                // 추가
-                const { data, error } = await supabase
-                    .from('recipe_startup')
-                    .insert([formData])
-                    .select()
-                    .single();
-                if (error) throw error;
-                setLogs(prev => [data, ...prev]);
-            }
-            setShowModal(false);
-        } catch (err) {
-            console.error('저장 실패:', err);
-            alert('저장 중 문제가 발생했어요.');
-        }
-    }
-
-    async function deleteLog(id: string) {
-        if (!supabase) return;
-        if (!confirm('정말 삭제할까요?')) return;
-
-        try {
-            await supabase.from('recipe_startup').delete().eq('id', id);
-            setLogs(prev => prev.filter(l => l.id !== id));
-        } catch (err) {
-            console.error('삭제 실패:', err);
-        }
-    }
-
     const filteredLogs = useMemo(() => {
         return logs.filter(log => {
-            const matchesSearch = log.title.toLowerCase().includes(searchQuery.toLowerCase());
+            const matchesSearch = log.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                (log.content?.toLowerCase().includes(searchQuery.toLowerCase()));
             const matchesCategory = selectedCategory === '전체' || log.category === selectedCategory;
             return matchesSearch && matchesCategory;
         });
@@ -132,15 +81,15 @@ export default function StartupPage() {
                         <Building2 className="w-7 h-7 text-blue-600" />
                         창업 준비 로그
                     </h1>
-                    <p className="text-gray-500 mt-1">창업까지의 여정을 기록하세요</p>
+                    <p className="text-gray-500 mt-1">미래의 내 가게를 위한 꼼꼼한 기록</p>
                 </div>
-                <button
-                    onClick={openAddModal}
+                <Link
+                    href="/startup/new"
                     className="flex items-center gap-2 px-4 py-2.5 bg-blue-500 hover:bg-blue-600 text-white rounded-xl font-medium transition-colors shadow-sm"
                 >
                     <Plus className="w-5 h-5" />
-                    <span className="hidden sm:inline">새 로그</span>
-                </button>
+                    <span className="hidden sm:inline">새 기록</span>
+                </Link>
             </div>
 
             {/* 검색 및 필터 */}
@@ -149,7 +98,7 @@ export default function StartupPage() {
                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                     <input
                         type="text"
-                        placeholder="로그 검색..."
+                        placeholder="기록 검색..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         className="w-full pl-12 pr-4 py-3 bg-white border border-wood-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -177,50 +126,59 @@ export default function StartupPage() {
             {isLoading && (
                 <div className="text-center py-16">
                     <Loader2 className="w-10 h-10 text-blue-500 mx-auto mb-4 animate-spin" />
-                    <p className="text-gray-500">로그를 불러오는 중...</p>
+                    <p className="text-gray-500">기록을 불러오는 중...</p>
                 </div>
             )}
 
             {/* 목록 */}
             {!isLoading && filteredLogs.length > 0 && (
-                <div className="space-y-3">
-                    {filteredLogs.map(log => (
-                        <div
-                            key={log.id}
-                            className="bg-white rounded-xl p-5 border border-wood-200 hover:shadow-md transition-shadow cursor-pointer"
-                            onClick={() => openEditModal(log)}
-                        >
-                            <div className="flex items-start justify-between gap-4">
-                                <div className="flex-1">
-                                    <div className="flex items-center gap-2 mb-2">
-                                        <span className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded-full">
-                                            {log.category}
-                                        </span>
-                                        <span className={`text-xs px-2 py-1 rounded-full flex items-center gap-1 ${statusConfig[log.status]?.color}`}>
-                                            {statusConfig[log.status]?.icon}
-                                            {log.status}
-                                        </span>
-                                    </div>
-                                    <h3 className="font-bold text-gray-800">{log.title}</h3>
-                                    {log.content && (
-                                        <p className="text-sm text-gray-500 mt-1 line-clamp-2">{log.content}</p>
-                                    )}
-                                    {log.due_date && (
-                                        <p className="text-xs text-gray-400 mt-2 flex items-center gap-1">
-                                            <Calendar className="w-3 h-3" />
-                                            마감: {log.due_date}
-                                        </p>
-                                    )}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {filteredLogs.map(log => {
+                        const style = getCategoryStyle(log.category);
+                        const Icon = style.icon;
+                        return (
+                            <Link
+                                key={log.id}
+                                href={`/startup/${log.id}`}
+                                className="block bg-white rounded-2xl p-5 border border-wood-100 hover:border-blue-300 hover:shadow-md transition-all group"
+                            >
+                                <div className="flex justify-between items-start mb-3">
+                                    <span className={`px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1.5 ${style.bg} ${style.color}`}>
+                                        <Icon className="w-3.5 h-3.5" />
+                                        {log.category}
+                                    </span>
+                                    <span className="text-sm text-gray-400 flex items-center gap-1">
+                                        <Calendar className="w-3.5 h-3.5" />
+                                        {log.date}
+                                    </span>
                                 </div>
-                                <button
-                                    onClick={(e) => { e.stopPropagation(); deleteLog(log.id); }}
-                                    className="text-gray-400 hover:text-red-500 transition-colors"
-                                >
-                                    <Trash2 className="w-4 h-4" />
-                                </button>
-                            </div>
-                        </div>
-                    ))}
+
+                                <h3 className="text-lg font-bold text-gray-800 mb-2 group-hover:text-blue-600 transition-colors line-clamp-1">
+                                    {log.title}
+                                </h3>
+                                <p className="text-gray-600 text-sm line-clamp-2 mb-4 h-10">
+                                    {log.content}
+                                </p>
+
+                                {/* 이미지 썸네일 (있을 경우) */}
+                                {log.images && log.images.length > 0 && (
+                                    <div className="flex gap-2 mt-3 overflow-hidden">
+                                        {log.images.slice(0, 3).map((img, idx) => (
+                                            <div key={idx} className="w-16 h-16 rounded-lg overflow-hidden border border-gray-100 relative">
+                                                <img src={img} alt="썸네일" className="w-full h-full object-cover" />
+                                                {/* 3장 이상일 때 마지막에 더보기 표시 */}
+                                                {idx === 2 && log.images!.length > 3 && (
+                                                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center text-white text-xs font-bold">
+                                                        +{log.images!.length - 3}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </Link>
+                        );
+                    })}
                 </div>
             )}
 
@@ -228,98 +186,18 @@ export default function StartupPage() {
             {!isLoading && filteredLogs.length === 0 && (
                 <div className="text-center py-16">
                     <Building2 className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                    <p className="text-gray-500">창업 준비 로그가 없어요</p>
-                    <button
-                        onClick={openAddModal}
+                    <p className="text-gray-500">
+                        {searchQuery || selectedCategory !== '전체'
+                            ? '검색 결과가 없어요'
+                            : '아직 기록된 내용이 없어요'}
+                    </p>
+                    <Link
+                        href="/startup/new"
                         className="inline-flex items-center gap-2 mt-4 text-blue-600 hover:text-blue-700 font-medium"
                     >
                         <Plus className="w-4 h-4" />
-                        첫 로그 작성하기
-                    </button>
-                </div>
-            )}
-
-            {/* 모달 */}
-            {showModal && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-2xl p-6 max-w-lg w-full max-h-[90vh] overflow-y-auto">
-                        <div className="flex items-center justify-between mb-4">
-                            <h3 className="text-lg font-bold text-gray-800">
-                                {editingLog ? '로그 수정' : '새 로그'}
-                            </h3>
-                            <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600">
-                                <X className="w-5 h-5" />
-                            </button>
-                        </div>
-
-                        <div className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">제목 *</label>
-                                <input
-                                    type="text"
-                                    value={formData.title}
-                                    onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
-                                    className="w-full px-4 py-3 border border-wood-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
-                                    placeholder="예: 상가 임대차 계약 준비"
-                                />
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-3">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">카테고리</label>
-                                    <select
-                                        value={formData.category}
-                                        onChange={(e) => setFormData(prev => ({ ...prev, category: e.target.value }))}
-                                        className="w-full px-4 py-3 border border-wood-200 rounded-xl bg-white outline-none"
-                                    >
-                                        {categories.filter(c => c !== '전체').map(c => (
-                                            <option key={c} value={c}>{c}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">상태</label>
-                                    <select
-                                        value={formData.status}
-                                        onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value }))}
-                                        className="w-full px-4 py-3 border border-wood-200 rounded-xl bg-white outline-none"
-                                    >
-                                        {statusOptions.map(s => (
-                                            <option key={s} value={s}>{s}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">마감일</label>
-                                <input
-                                    type="date"
-                                    value={formData.due_date}
-                                    onChange={(e) => setFormData(prev => ({ ...prev, due_date: e.target.value }))}
-                                    className="w-full px-4 py-3 border border-wood-200 rounded-xl outline-none"
-                                />
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">내용</label>
-                                <textarea
-                                    value={formData.content}
-                                    onChange={(e) => setFormData(prev => ({ ...prev, content: e.target.value }))}
-                                    rows={5}
-                                    className="w-full px-4 py-3 border border-wood-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none resize-none"
-                                    placeholder="상세 내용을 적어주세요..."
-                                />
-                            </div>
-
-                            <button
-                                onClick={saveLog}
-                                className="w-full py-3 bg-blue-500 hover:bg-blue-600 text-white font-bold rounded-xl transition-colors"
-                            >
-                                {editingLog ? '수정하기' : '추가하기'}
-                            </button>
-                        </div>
-                    </div>
+                        첫 기록 남기기
+                    </Link>
                 </div>
             )}
         </div>

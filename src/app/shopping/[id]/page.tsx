@@ -7,7 +7,7 @@ import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Edit, Trash2, Loader2, Check, MapPin, Calendar, Plus, Save, X } from 'lucide-react';
-import { supabase, ShoppingTrip, ShoppingItem } from '@/lib/supabase';
+import { supabase, ShoppingTrip, ShoppingItem, TABLE_SHOPPING_TRIPS, TABLE_SHOPPING_ITEMS } from '@/lib/supabase';
 
 const categories = ['채소', '육류', '해산물', '양념', '주류', '과일', '곡물', '유제품', '기타'];
 const units = ['kg', 'g', '개', '박스', '팩', '봉', '병', '캔', 'L', 'ml'];
@@ -39,7 +39,7 @@ export default function ShoppingDetailPage() {
         try {
             // 장보기 일정
             const { data: tripData, error: tripError } = await supabase
-                .from('recipe_shopping_trips')
+                .from(TABLE_SHOPPING_TRIPS)
                 .select('*')
                 .eq('id', tripId)
                 .single();
@@ -48,7 +48,7 @@ export default function ShoppingDetailPage() {
 
             // 품목 리스트
             const { data: itemsData, error: itemsError } = await supabase
-                .from('recipe_shopping_items')
+                .from(TABLE_SHOPPING_ITEMS)
                 .select('*')
                 .eq('trip_id', tripId)
                 .order('created_at', { ascending: true });
@@ -71,7 +71,7 @@ export default function ShoppingDetailPage() {
 
         try {
             await supabase
-                .from('recipe_shopping_items')
+                .from(TABLE_SHOPPING_ITEMS)
                 .update({
                     is_purchased: newPurchased,
                     actual_quantity: actualQty,
@@ -96,7 +96,7 @@ export default function ShoppingDetailPage() {
         try {
             // 1. 품목 가격 업데이트
             await supabase
-                .from('recipe_shopping_items')
+                .from(TABLE_SHOPPING_ITEMS)
                 .update({ actual_price: newPrice })
                 .eq('id', item.id);
 
@@ -111,7 +111,7 @@ export default function ShoppingDetailPage() {
             const newTotalExpected = updatedItems.reduce((sum, i) => sum + (i.expected_price || 0), 0);
 
             await supabase
-                .from('recipe_shopping_trips')
+                .from(TABLE_SHOPPING_TRIPS)
                 .update({
                     total_actual: newTotalActual,
                     total_expected: newTotalExpected
@@ -130,7 +130,7 @@ export default function ShoppingDetailPage() {
 
         try {
             await supabase
-                .from('recipe_shopping_trips')
+                .from(TABLE_SHOPPING_TRIPS)
                 .update({ status: '계획' })
                 .eq('id', tripId);
 
@@ -146,7 +146,7 @@ export default function ShoppingDetailPage() {
         if (!confirm('이 품목을 삭제할까요?')) return;
 
         try {
-            await supabase.from('recipe_shopping_items').delete().eq('id', id);
+            await supabase.from(TABLE_SHOPPING_ITEMS).delete().eq('id', id);
             setItems(prev => prev.filter(i => i.id !== id));
         } catch (err) {
             console.error('삭제 실패:', err);
@@ -159,7 +159,7 @@ export default function ShoppingDetailPage() {
 
         try {
             const { data, error } = await supabase
-                .from('recipe_shopping_items')
+                .from(TABLE_SHOPPING_ITEMS)
                 .insert([{
                     trip_id: tripId,
                     name: newItem.name,
@@ -193,7 +193,7 @@ export default function ShoppingDetailPage() {
         setIsSaving(true);
         try {
             await supabase
-                .from('recipe_shopping_trips')
+                .from(TABLE_SHOPPING_TRIPS)
                 .update({
                     status: '완료',
                     total_actual: totalActual,
@@ -215,7 +215,7 @@ export default function ShoppingDetailPage() {
         if (!confirm('이 장보기 기록을 삭제할까요?')) return;
 
         try {
-            await supabase.from('recipe_shopping_trips').delete().eq('id', tripId);
+            await supabase.from(TABLE_SHOPPING_TRIPS).delete().eq('id', tripId);
             router.push('/shopping');
         } catch (err) {
             console.error('삭제 실패:', err);

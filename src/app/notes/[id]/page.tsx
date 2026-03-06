@@ -7,7 +7,7 @@ import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Edit, Trash2, Loader2, StickyNote, Calendar } from 'lucide-react';
-import { supabase, Note } from '@/lib/supabase';
+import { supabase, Note, TABLE_NOTES } from '@/lib/supabase';
 
 export default function NoteDetailPage() {
     const router = useRouter();
@@ -30,7 +30,7 @@ export default function NoteDetailPage() {
 
         try {
             const { data, error } = await supabase
-                .from('recipe_notes')
+                .from(TABLE_NOTES)
                 .select('*')
                 .eq('id', noteId)
                 .single();
@@ -49,7 +49,7 @@ export default function NoteDetailPage() {
         if (!confirm('정말 삭제할까요? 이 작업은 되돌릴 수 없어요.')) return;
 
         try {
-            await supabase.from('recipe_notes').delete().eq('id', note.id);
+            await supabase.from(TABLE_NOTES).delete().eq('id', note.id);
             router.push('/notes');
         } catch (err) {
             console.error('삭제 실패:', err);
