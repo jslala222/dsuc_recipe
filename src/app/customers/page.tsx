@@ -6,7 +6,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Plus, Search, Users, Crown, Phone, ArrowRight, Loader2 } from 'lucide-react';
-import { supabase, TABLE_CUSTOMERS } from '@/lib/supabase';
+import { supabase } from '@/lib/supabase';
 
 interface Customer {
     id: string;
@@ -35,7 +35,7 @@ export default function CustomersPage() {
 
         try {
             const { data, error } = await supabase
-                .from(TABLE_CUSTOMERS)
+                .from('recipe_customers')
                 .select('*')
                 .order('created_at', { ascending: false });
 
