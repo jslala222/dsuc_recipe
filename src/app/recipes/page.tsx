@@ -147,7 +147,7 @@ export default function RecipesPage() {
 
             {/* 레시피 그리드 */}
             {!isLoading && !error && filteredRecipes.length > 0 && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                     {filteredRecipes.map(recipe => (
                         <RecipeCard key={recipe.id} recipe={recipe} />
                     ))}
