@@ -36,17 +36,17 @@ export interface ShoppingTrip {
     items?: ShoppingItem[];
 }
 
-// ====== 테이블 이름 상수 (원본 테이블 이름) ======
+// ====== 테이블 이름 상수 (실제 DB 테이블 이름과 정확히 일치) ======
 export const TABLE_RECIPES = 'recipes';
 export const TABLE_RECIPE_STEPS = 'recipe_steps';
-export const TABLE_SHOPPING_TRIPS = 'shopping_trips';
-export const TABLE_SHOPPING_ITEMS = 'shopping_items';
-export const TABLE_STARTUP_LOGS = 'startup_logs';
-export const TABLE_ACCOUNTING = 'accounting_records';
-export const TABLE_SUPPLIERS = 'suppliers';
-export const TABLE_RESERVATIONS = 'reservations';
-export const TABLE_CUSTOMERS = 'customers';
-export const TABLE_NOTES = 'notes';
+export const TABLE_SHOPPING_TRIPS = 'recipe_shopping_trips';
+export const TABLE_SHOPPING_ITEMS = 'recipe_shopping_items';
+export const TABLE_STARTUP_LOGS = 'recipe_startup_logs';
+export const TABLE_ACCOUNTING = 'recipe_accounting_records';
+export const TABLE_SUPPLIERS = 'recipe_suppliers';
+export const TABLE_RESERVATIONS = 'recipe_reservations';
+export const TABLE_CUSTOMERS = 'recipe_customers';
+export const TABLE_NOTES = 'recipe_notes';
 
 // ====== 장보기 품목 타입 ======
 export interface ShoppingItem {
