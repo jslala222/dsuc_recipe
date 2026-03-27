@@ -2,6 +2,7 @@
 // Description: Supabase 클라이언트 설정 및 레시피 타입 정의
 
 import { createClient } from '@supabase/supabase-js';
+import { uploadToR2 } from './r2';
 
 // 환경 변수에서 Supabase 설정 가져오기
 // 환경 변수에서 Supabase 설정 가져오기 (Vercel 설정이 어려우신 경우를 위해 기본값 포함)
@@ -200,34 +201,34 @@ export const mockRecipes: Recipe[] = [
 ];
 
 /**
- * 이미지를 Supabase Storage에 업로드하고 Public URL을 반환합니다.
- * @param file - 업로드할 이미지 파일 (Blob 또는 File)
- * @param path - 저장할 경로 (예: 'recipes/image.jpg')
+ * 이미지를 업로드하는 통합 함수 (Cloudflare R2 우선 사용)
  */
-export async function uploadRecipeImage(file: Blob | File): Promise<string | null> {
-    if (!supabase) return null;
-
+export async function uploadRecipeImage(file: File, path: string): Promise<string> {
     try {
-        const fileExt = file.type.split('/')[1] || 'jpg';
-        const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
-        const filePath = `${fileName}`;
+        // 1. 먼저 Cloudflare R2에 업로드를 시도합니다.
+        console.log("Attempting R2 upload for:", path);
+        // path에서 버킷 이름을 제외한 순수 경로 추출 (예: 'recipe-images/file.png' -> 'recipes')
+        const folder = path.split('/')[0] || 'uploads';
+        const r2Url = await uploadToR2(file, folder);
+        console.log("R2 upload successful:", r2Url);
+        return r2Url;
+    } catch (r2Error) {
+        // 2. R2 업로드 실패 시 기존 Supabase Storage를 백업으로 사용합니다.
+        console.error("R2 upload failed, falling back to Supabase:", r2Error);
+        
+        if (!supabase) throw new Error("Supabase client is not initialized");
 
-        const { error: uploadError } = await supabase.storage
-            .from('recipes')
-            .upload(filePath, file);
+        const fileName = `${Date.now()}-${(file as File).name}`;
+        const { data, error } = await supabase.storage
+            .from('recipe-images')
+            .upload(fileName, file);
 
-        if (uploadError) {
-            console.error('이미지 업로드 실패:', uploadError);
-            throw uploadError;
-        }
+        if (error) throw error;
 
-        const { data } = supabase.storage
-            .from('recipes')
-            .getPublicUrl(filePath);
+        const { data: { publicUrl } } = supabase.storage
+            .from('recipe-images')
+            .getPublicUrl(fileName);
 
-        return data.publicUrl;
-    } catch (error) {
-        console.error('이미지 업로드 에러:', error);
-        return null;
+        return publicUrl;
     }
 }
