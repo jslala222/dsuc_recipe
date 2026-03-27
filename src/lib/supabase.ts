@@ -2,10 +2,8 @@
 // Description: Supabase 클라이언트 설정 및 레시피 타입 정의
 
 import { createClient } from '@supabase/supabase-js';
-import { uploadToR2 } from './r2';
 
 // 환경 변수에서 Supabase 설정 가져오기
-// 환경 변수에서 Supabase 설정 가져오기 (Vercel 설정이 어려우신 경우를 위해 기본값 포함)
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://jsdqmsbqtgdacccqkrjm.supabase.co';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpzZHFtc2JxdGdkYWNjY3FrcmptIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkzNTI5ODMsImV4cCI6MjA4NDkyODk4M30.7ADXbt6pT-MF1KYybdGE7wbtK5YaULby2OLwh65cj2c';
 
@@ -20,8 +18,8 @@ export interface RecipeStep {
     recipe_id: string;
     step_number: number;
     description: string;
-    images?: string[]; // 다중 이미지 지원을 위해 배열로 변경
-    image_url?: string; // 하위 호환성 (단일 이미지 시절 데이터)
+    images?: string[];
+    image_url?: string;
 }
 
 // ====== 장보기 일정 타입 ======
@@ -37,7 +35,7 @@ export interface ShoppingTrip {
     items?: ShoppingItem[];
 }
 
-// ====== 테이블 이름 상수 (실제 DB 테이블 이름과 정확히 일치) ======
+// ====== 테이블 이름 상수 ======
 export const TABLE_RECIPES = 'recipes';
 export const TABLE_RECIPE_STEPS = 'recipe_steps';
 export const TABLE_SHOPPING_TRIPS = 'recipe_shopping_trips';
@@ -64,7 +62,6 @@ export interface ShoppingItem {
     created_at: string;
 }
 
-// ====== 창업 준비 로그 타입 ======
 export interface StartupLog {
     id: string;
     title: string;
@@ -75,7 +72,6 @@ export interface StartupLog {
     created_at: string;
 }
 
-// ====== 세무/회계 노트 타입 ======
 export interface AccountingRecord {
     id: string;
     date: string;
@@ -87,7 +83,6 @@ export interface AccountingRecord {
     created_at: string;
 }
 
-// ====== 거래처 관리 타입 ======
 export interface Supplier {
     id: string;
     name: string;
@@ -100,7 +95,6 @@ export interface Supplier {
     created_at: string;
 }
 
-// ====== 예약 시스템 타입 ======
 export interface Reservation {
     id: string;
     customer_name: string;
@@ -113,7 +107,6 @@ export interface Reservation {
     created_at: string;
 }
 
-// ====== 고객 관리 타입 ======
 export interface Customer {
     id: string;
     name: string;
@@ -126,7 +119,6 @@ export interface Customer {
     created_at: string;
 }
 
-// ====== 특이사항 메모 타입 ======
 export interface Note {
     id: string;
     title: string;
@@ -137,15 +129,14 @@ export interface Note {
     updated_at: string;
 }
 
-// 레시피 타입 정의
 export interface Recipe {
     id: string;
     title: string;
     description: string;
     image_url: string;
     ingredients: string;
-    instructions: string; // 하위 호환성을 위해 유지 (텍스트만 있는 경우)
-    steps?: RecipeStep[]; // 단계별 이미지/설명 (신규 기능)
+    instructions: string;
+    steps?: RecipeStep[];
     chef_tips: string;
     category: string;
     cooking_time: number;
@@ -154,7 +145,6 @@ export interface Recipe {
     updated_at: string;
 }
 
-// 임시 데이터 (테이블 생성 전까지 사용)
 export const mockRecipes: Recipe[] = [
     {
         id: '1',
@@ -201,23 +191,35 @@ export const mockRecipes: Recipe[] = [
 ];
 
 /**
- * 이미지를 업로드하는 통합 함수 (Cloudflare R2 우선 사용)
- * 모든 레시피 이미지는 R2의 'dsuc-recipe/steps/' 폴더에 저장됩니다.
+ * 이미지를 업로드하는 통합 함수
+ * 브라우저(클라이언트)에서 서버 API(/api/upload)를 호출하면
+ * 서버가 직접 Cloudflare R2에 저장합니다. (보안 구조)
  */
 export async function uploadRecipeImage(file: Blob | File): Promise<string | null> {
     try {
-        // File 객체이면 그대로, Blob이면 File로 변환
         const fileObj = file instanceof File
             ? file
             : new File([file], `recipe_${Date.now()}.jpg`, { type: file.type || 'image/jpeg' });
 
-        // 1. 먼저 Cloudflare R2에 업로드 (dsuc-recipe/steps 폴더)
-        const r2Url = await uploadToR2(fileObj, 'dsuc-recipe/steps');
-        return r2Url;
-    } catch (r2Error) {
-        // 2. R2 업로드 실패 시 기존 Supabase Storage를 백업으로 사용합니다.
-        console.error('R2 upload failed, falling back to Supabase:', r2Error);
-        
+        const formData = new FormData();
+        formData.append('file', fileObj);
+        formData.append('folder', 'dsuc-recipe/steps');
+
+        const response = await fetch('/api/upload', {
+            method: 'POST',
+            body: formData,
+        });
+
+        if (!response.ok) {
+            throw new Error(`업로드 API 에러: ${response.status}`);
+        }
+
+        const result = await response.json();
+        return result.url;
+
+    } catch (error) {
+        console.error('업로드 실패, Supabase로 전환:', error);
+
         if (!supabase) return null;
 
         const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.jpg`;
