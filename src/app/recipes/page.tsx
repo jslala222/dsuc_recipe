@@ -32,9 +32,9 @@ export default function RecipesPage() {
                 return;
             }
 
-            // 5초 타임아웃 설정
+            // 10초 타임아웃 설정 (운영 환경 네트워크 고려)
             const timeoutPromise = new Promise((_, reject) =>
-                setTimeout(() => reject(new Error('시간 초과: 데이터를 불러오는데 너무 오래 걸립니다.')), 5000)
+                setTimeout(() => reject(new Error('시간 초과: 데이터를 불러오는데 너무 오래 걸립니다.')), 10000)
             );
 
             try {
@@ -45,9 +45,16 @@ export default function RecipesPage() {
 
                 const { data, error } = await Promise.race([fetchPromise, timeoutPromise]) as any;
 
-                if (error) throw error;
-                if (isMounted) setRecipes(data || []);
-            } catch (err) {
+                if (error) {
+                    console.error('Supabase Error:', error);
+                    throw error;
+                }
+                
+                if (isMounted) {
+                    console.log('Fetched recipes count:', data?.length || 0);
+                    setRecipes(data || []);
+                }
+            } catch (err: any) {
                 console.error('레시피 불러오기 실패:', err);
                 if (isMounted) setError('레시피를 불러올 수 없습니다. 데이터베이스 연결을 확인해주세요.');
             } finally {

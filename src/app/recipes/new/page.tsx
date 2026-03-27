@@ -100,7 +100,9 @@ export default function NewRecipePage() {
     };
 
     // 단계 이미지 삭제
-    const removeStepImage = (stepIndex: number, imageIndex: number) => {
+    const removeStepImage = async (stepIndex: number, imageIndex: number) => {
+        const urlToDelete = steps[stepIndex].images[imageIndex];
+
         setSteps(prev => {
             const newSteps = [...prev];
             const newImages = [...newSteps[stepIndex].images];
@@ -108,6 +110,12 @@ export default function NewRecipePage() {
             newSteps[stepIndex] = { ...newSteps[stepIndex], images: newImages };
             return newSteps;
         });
+
+        // 실제 파일 서버(R2/Supabase) 삭제 진행
+        if (urlToDelete && !urlToDelete.startsWith('blob:')) {
+            const { deleteRecipeImage } = await import('@/lib/supabase');
+            await deleteRecipeImage(urlToDelete);
+        }
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -215,12 +223,26 @@ export default function NewRecipePage() {
                                         if (!file) return;
                                         try {
                                             const { resizeImage } = await import('@/lib/imageUtils');
-                                            const { uploadRecipeImage } = await import('@/lib/supabase');
+                                            const { uploadRecipeImage, deleteRecipeImage } = await import('@/lib/supabase');
                                             const { blob, previewUrl } = await resizeImage(file);
+                                            
+                                            // 기존 이미지가 있다면 삭제
+                                            const oldUrl = formData.image_url;
+                                            
                                             setFormData(prev => ({ ...prev, image_url: previewUrl }));
+                                            
                                             const publicUrl = await uploadRecipeImage(blob);
-                                            if (publicUrl) setFormData(prev => ({ ...prev, image_url: publicUrl }));
-                                        } catch (e) { console.error(e); }
+                                            if (publicUrl) {
+                                                setFormData(prev => ({ ...prev, image_url: publicUrl }));
+                                                
+                                                // 새 이미지 업로드 완료 후 구형 이미지 삭제
+                                                if (oldUrl && !oldUrl.startsWith('blob:')) {
+                                                    await deleteRecipeImage(oldUrl);
+                                                }
+                                            }
+                                        } catch (e) {
+                                            console.error(e);
+                                        }
                                     }} />
                                 </label>
                                 <p className="text-xs text-gray-500 mt-2">요리의 완성된 모습을 보여주세요</p>

@@ -1,0 +1,77 @@
+[
+  {
+    "id": "91dfa52a-6dcd-4f0b-9033-074f3288ea48",
+    "step_number": 1,
+    "images": [
+      "https://jsdqmsbqtgdacccqkrjm.supabase.co/storage/v1/object/public/recipes/1774575169962-1tcsc.jpg"
+    ]
+  },
+  {
+    "id": "958f63b1-dee1-4b7b-a407-585ef70429a4",
+    "step_number": 2,
+    "images": [
+      "https://jsdqmsbqtgdacccqkrjm.supabase.co/storage/v1/object/public/recipes/1774575174347-g4wqu.jpg"
+    ]
+  },
+  {
+    "id": "6f1f236b-ddf3-451d-826c-54ef02daa495",
+    "step_number": 3,
+    "images": [
+      "https://jsdqmsbqtgdacccqkrjm.supabase.co/storage/v1/object/public/recipes/1774575178001-ts59pd.jpg"
+    ]
+  },
+  {
+    "id": "8617a79e-76c0-48dc-b63c-5fea49eba4a8",
+    "step_number": 4,
+    "images": [
+      "blob:https://dsuc-recipe-01.vercel.app/81bb4605-51f5-4e1c-b44b-46a0f77b7f41"
+    ]
+  },
+  {
+    "id": "3dd42931-085e-487f-b7f7-9f39e2cc5a55",
+    "step_number": 5,
+    "images": [
+      "blob:http://localhost:3000/61901b41-e627-4305-b9e2-1cc2bd702994"
+    ]
+  },
+  {
+    "id": "bda73c3c-d747-4637-a0e7-f58bff46aebe",
+    "step_number": 6,
+    "images": []
+  },
+  {
+    "id": "b34e2a87-5678-4831-b24c-39797122a4c9",
+    "step_number": 7,
+    "images": []
+  },
+  {
+    "id": "26cd76bd-5e51-4903-932c-3e1985acb962",
+    "step_number": 8,
+    "images": []
+  },
+  {
+    "id": "c043987b-db33-4f13-8ee2-d09d6de307d8",
+    "step_number": 9,
+    "images": []
+  },
+  {
+    "id": "3caacb00-9cac-4069-a29f-c32d4ccb8172",
+    "step_number": 10,
+    "images": []
+  },
+  {
+    "id": "81cfdce0-9d6b-4756-97fb-ab711b9965c1",
+    "step_number": 11,
+    "images": []
+  },
+  {
+    "id": "3235a62d-431b-460a-9540-40e1044b9992",
+    "step_number": 12,
+    "images": []
+  },
+  {
+    "id": "94b040a0-430d-4819-9eec-c38ffc890599",
+    "step_number": 13,
+    "images": []
+  }
+]

@@ -4,7 +4,6 @@
 import { createClient } from '@supabase/supabase-js';
 
 // 환경 변수에서 Supabase 설정 가져오기
-// 환경 변수에서 Supabase 설정 가져오기 (Vercel 설정이 어려우신 경우를 위해 기본값 포함)
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://jsdqmsbqtgdacccqkrjm.supabase.co';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpzZHFtc2JxdGdkYWNjY3FrcmptIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkzNTI5ODMsImV4cCI6MjA4NDkyODk4M30.7ADXbt6pT-MF1KYybdGE7wbtK5YaULby2OLwh65cj2c';
 
@@ -200,34 +199,86 @@ export const mockRecipes: Recipe[] = [
 ];
 
 /**
- * 이미지를 Supabase Storage에 업로드하고 Public URL을 반환합니다.
- * @param file - 업로드할 이미지 파일 (Blob 또는 File)
- * @param path - 저장할 경로 (예: 'recipes/image.jpg')
+ * 이미지를 업로드하는 통합 함수
+ * 브라우저(클라이언트)에서 서버 API(/api/upload)를 호출하면
+ * 서버가 직접 Cloudflare R2에 저장합니다. (보안 구조)
  */
 export async function uploadRecipeImage(file: Blob | File): Promise<string | null> {
-    if (!supabase) return null;
-
     try {
-        const fileExt = file.type.split('/')[1] || 'jpg';
-        const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
-        const filePath = `${fileName}`;
+        // File 객체이면 그대로, Blob이면 File로 변환
+        const fileObj = file instanceof File
+            ? file
+            : new File([file], `recipe_${Date.now()}.jpg`, { type: file.type || 'image/jpeg' });
 
+        // 서버 API에 파일 전송 (FormData 형식)
+        const formData = new FormData();
+        formData.append('file', fileObj);
+        formData.append('folder', 'dsuc-recipe/steps');
+
+        const response = await fetch('/api/upload', {
+            method: 'POST',
+            body: formData,
+        });
+
+        if (!response.ok) {
+            throw new Error(`업로드 API 에러: ${response.status}`);
+        }
+
+        const result = await response.json();
+        return result.url;
+
+    } catch (error) {
+        // API 실패 시 Supabase Storage 백업
+        console.error('업로드 실패, Supabase로 전환:', error);
+
+        if (!supabase) return null;
+
+        const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.jpg`;
         const { error: uploadError } = await supabase.storage
             .from('recipes')
-            .upload(filePath, file);
+            .upload(fileName, file);
 
         if (uploadError) {
             console.error('이미지 업로드 실패:', uploadError);
-            throw uploadError;
+            return null; // 실패
         }
 
+        // @ts-ignore
         const { data } = supabase.storage
             .from('recipes')
-            .getPublicUrl(filePath);
+            .getPublicUrl(fileName);
 
         return data.publicUrl;
-    } catch (error) {
-        console.error('이미지 업로드 에러:', error);
-        return null;
     }
 }
+
+/**
+ * 2) 통합 이미지 삭제 로직 (기존 저장소 + R2 모두 대응 가능하도록)
+ * - R2 등 서버 사이드 연동 API (DELETE /api/upload)를 호출하여 이미지 삭제
+ */
+export const deleteRecipeImage = async (url: string): Promise<boolean> => {
+    if (!url) return false;
+
+    // 만약 브라우저 blob 임시 URL이라면, 실제 파일이 서버에 없으므로 무시
+    if (url.startsWith('blob:')) return true;
+
+    try {
+        const response = await fetch('/api/upload', {
+            method: 'DELETE',
+            body: JSON.stringify({ url }),
+            headers: {
+                'Content-Type': 'application/json',
+            },
+        });
+
+        if (!response.ok) {
+            console.error('이미지 삭제 API 호출 실패:', await response.text());
+            return false;
+        }
+
+        return true;
+    } catch (error) {
+        console.error('이미지 삭제 중 오류 발생:', error);
+        return false;
+    }
+};

@@ -17,6 +17,7 @@ export default function EditRecipePage() {
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isUploading, setIsUploading] = useState(false); // 이미지 업로드 중 여부
 
     // 기본 정보 Form Data
     const [formData, setFormData] = useState({
@@ -128,11 +129,13 @@ export default function EditRecipePage() {
     };
 
     const addStepImage = async (index: number, file: File) => {
+        setIsUploading(true); // 업로드 시작 → 저장 버튼 비활성화
         try {
             const { resizeImage } = await import('@/lib/imageUtils');
             const { uploadRecipeImage } = await import('@/lib/supabase');
             const { blob, previewUrl } = await resizeImage(file);
 
+            // 화면에 미리보기 표시 (임시 blob URL)
             setSteps(prev => {
                 const newSteps = [...prev];
                 const currentImages = newSteps[index].images || [];
@@ -140,8 +143,10 @@ export default function EditRecipePage() {
                 return newSteps;
             });
 
+            // R2 서버 업로드 완료 대기
             const publicUrl = await uploadRecipeImage(blob);
             if (publicUrl) {
+                // blob URL → 실제 R2 URL로 교체
                 setSteps(prev => {
                     const newSteps = [...prev];
                     const currentImages = [...newSteps[index].images];
@@ -150,15 +155,28 @@ export default function EditRecipePage() {
                     return newSteps;
                 });
             } else {
-                alert('이미지 업로드 실패');
+                // 실패 시 임시 URL 제거
+                setSteps(prev => {
+                    const newSteps = [...prev];
+                    const currentImages = [...newSteps[index].images];
+                    currentImages.pop();
+                    newSteps[index] = { ...newSteps[index], images: currentImages };
+                    return newSteps;
+                });
+                alert('이미지 업로드 실패. 다시 시도해주세요.');
             }
         } catch (error) {
             console.error(error);
             alert('이미지 업로드 중 오류 발생');
+        } finally {
+            setIsUploading(false); // 업로드 완료 → 저장 버튼 활성화
         }
     };
 
-    const removeStepImage = (stepIndex: number, imageIndex: number) => {
+    const removeStepImage = async (stepIndex: number, imageIndex: number) => {
+        const urlToDelete = steps[stepIndex].images[imageIndex];
+
+        // 상태에서 먼저 제거 (UI 즉각 반영)
         setSteps(prev => {
             const newSteps = [...prev];
             const newImages = [...newSteps[stepIndex].images];
@@ -166,6 +184,12 @@ export default function EditRecipePage() {
             newSteps[stepIndex] = { ...newSteps[stepIndex], images: newImages };
             return newSteps;
         });
+
+        // 실제 파일 서버(R2/Supabase) 삭제 진행
+        if (urlToDelete && !urlToDelete.startsWith('blob:')) {
+            const { deleteRecipeImage } = await import('@/lib/supabase');
+            await deleteRecipeImage(urlToDelete);
+        }
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -283,11 +307,22 @@ export default function EditRecipePage() {
                                         if (!file) return;
                                         try {
                                             const { resizeImage } = await import('@/lib/imageUtils');
-                                            const { uploadRecipeImage } = await import('@/lib/supabase');
+                                            const { uploadRecipeImage, deleteRecipeImage } = await import('@/lib/supabase');
                                             const { blob, previewUrl } = await resizeImage(file);
+                                            
+                                            // 기존 이미지가 있다면 삭제
+                                            const oldUrl = formData.image_url;
+                                            
                                             setFormData(prev => ({ ...prev, image_url: previewUrl }));
+                                            
                                             const publicUrl = await uploadRecipeImage(blob);
-                                            if (publicUrl) setFormData(prev => ({ ...prev, image_url: publicUrl }));
+                                            if (publicUrl) {
+                                                setFormData(prev => ({ ...prev, image_url: publicUrl }));
+                                                // 새 이미지 업로드 완료 후 구형 이미지 삭제
+                                                if (oldUrl && !oldUrl.startsWith('blob:')) {
+                                                    await deleteRecipeImage(oldUrl);
+                                                }
+                                            }
                                         } catch (e) { console.error(e); }
                                     }} />
                                 </label>
@@ -440,10 +475,15 @@ export default function EditRecipePage() {
                 <div className="sticky bottom-4 z-10">
                     <button
                         type="submit"
-                        disabled={isSubmitting}
+                        disabled={isSubmitting || isUploading}
                         className="w-full py-4 bg-primary-600 hover:bg-primary-700 disabled:bg-gray-400 text-white font-bold rounded-2xl shadow-lg transition-all transform active:scale-95 flex items-center justify-center gap-2"
                     >
-                        {isSubmitting ? (
+                        {isUploading ? (
+                            <>
+                                <Loader2 className="w-5 h-5 animate-spin" />
+                                사진 업로드 중... (완료 후 저장 가능)
+                            </>
+                        ) : isSubmitting ? (
                             <>
                                 <Loader2 className="w-5 h-5 animate-spin" />
                                 저장 중...
