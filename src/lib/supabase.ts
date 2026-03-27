@@ -202,33 +202,38 @@ export const mockRecipes: Recipe[] = [
 
 /**
  * 이미지를 업로드하는 통합 함수 (Cloudflare R2 우선 사용)
+ * 모든 레시피 이미지는 R2의 'dsuc-recipe/steps/' 폴더에 저장됩니다.
  */
-export async function uploadRecipeImage(file: File, path: string): Promise<string> {
+export async function uploadRecipeImage(file: Blob | File): Promise<string | null> {
     try {
-        // 1. 먼저 Cloudflare R2에 업로드를 시도합니다.
-        console.log("Attempting R2 upload for:", path);
-        // path에서 버킷 이름을 제외한 순수 경로 추출 (예: 'recipe-images/file.png' -> 'recipes')
-        const folder = path.split('/')[0] || 'uploads';
-        const r2Url = await uploadToR2(file, folder);
-        console.log("R2 upload successful:", r2Url);
+        // File 객체이면 그대로, Blob이면 File로 변환
+        const fileObj = file instanceof File
+            ? file
+            : new File([file], `recipe_${Date.now()}.jpg`, { type: file.type || 'image/jpeg' });
+
+        // 1. 먼저 Cloudflare R2에 업로드 (dsuc-recipe/steps 폴더)
+        const r2Url = await uploadToR2(fileObj, 'dsuc-recipe/steps');
         return r2Url;
     } catch (r2Error) {
         // 2. R2 업로드 실패 시 기존 Supabase Storage를 백업으로 사용합니다.
-        console.error("R2 upload failed, falling back to Supabase:", r2Error);
+        console.error('R2 upload failed, falling back to Supabase:', r2Error);
         
-        if (!supabase) throw new Error("Supabase client is not initialized");
+        if (!supabase) return null;
 
-        const fileName = `${Date.now()}-${(file as File).name}`;
-        const { data, error } = await supabase.storage
-            .from('recipe-images')
+        const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.jpg`;
+        const { error: uploadError } = await supabase.storage
+            .from('recipes')
             .upload(fileName, file);
 
-        if (error) throw error;
+        if (uploadError) {
+            console.error('이미지 업로드 실패:', uploadError);
+            return null;
+        }
 
-        const { data: { publicUrl } } = supabase.storage
-            .from('recipe-images')
+        const { data } = supabase.storage
+            .from('recipes')
             .getPublicUrl(fileName);
 
-        return publicUrl;
+        return data.publicUrl;
     }
 }
