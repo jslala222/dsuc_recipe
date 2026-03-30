@@ -26,7 +26,8 @@ export default function NewStartupLogPage() {
     const [category, setCategory] = useState('상권');
     const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
     const [content, setContent] = useState('');
-    const [images, setImages] = useState<ImageFile[]>([]);
+    const [images, setImages] = useState<{ url: string; previewUrl: string }[]>([]);
+    const [uploadingCount, setUploadingCount] = useState(0);
 
     // 이미지 선택 핸들러
     const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -34,14 +35,25 @@ export default function NewStartupLogPage() {
 
         const files = Array.from(e.target.files);
 
-        // 이미지 리사이즈 및 미리보기 생성
+        // 이미지 리사이즈 및 즉시 업로드
         for (const file of files) {
+            setUploadingCount(prev => prev + 1);
             try {
                 const { blob, previewUrl } = await resizeImage(file);
-                setImages(prev => [...prev, { blob, previewUrl }]);
+                
+                // 즉시 업로드 (startup 폴더 지정)
+                const uploadedUrl = await uploadRecipeImage(blob, 'startup');
+                
+                if (uploadedUrl) {
+                    setImages(prev => [...prev, { url: uploadedUrl, previewUrl }]);
+                } else {
+                    throw new Error('업로드 실패');
+                }
             } catch (error) {
                 console.error('이미지 처리 실패:', error);
                 alert('이미지를 처리하는 중 오류가 발생했습니다.');
+            } finally {
+                setUploadingCount(prev => Math.max(0, prev - 1));
             }
         }
     };
@@ -55,17 +67,11 @@ export default function NewStartupLogPage() {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!title.trim()) return alert('제목을 입력해주세요.');
+        if (uploadingCount > 0) return alert('사진 업로드 중입니다. 잠시만 기다려주세요.');
 
         setIsLoading(true);
 
         try {
-            // 1. 이미지 업로드
-            const uploadedUrls: string[] = [];
-            for (const img of images) {
-                const url = await uploadRecipeImage(img.blob);
-                if (url) uploadedUrls.push(url);
-            }
-
             // 2. 로그 저장
             if (supabase) {
                 const { error } = await supabase
@@ -75,7 +81,7 @@ export default function NewStartupLogPage() {
                         category,
                         date,
                         content,
-                        images: uploadedUrls
+                        images: images.map(img => img.url)
                     }]);
 
                 if (error) throw error;
@@ -161,14 +167,22 @@ export default function NewStartupLogPage() {
                             </div>
                         ))}
 
-                        <label className="w-24 h-24 flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-blue-500 hover:bg-blue-50 transition-colors text-gray-400 hover:text-blue-500">
-                            <Camera className="w-6 h-6 mb-1" />
-                            <span className="text-xs">사진 추가</span>
+                        <label className={`w-24 h-24 flex flex-col items-center justify-center border-2 border-dashed rounded-lg cursor-pointer transition-colors
+                            ${uploadingCount > 0 ? 'bg-gray-50 border-gray-300' : 'border-gray-300 hover:border-blue-500 hover:bg-blue-50 text-gray-400 hover:text-blue-500'}`}>
+                            {uploadingCount > 0 ? (
+                                <Loader2 className="w-6 h-6 animate-spin text-blue-500" />
+                            ) : (
+                                <>
+                                    <Camera className="w-6 h-6 mb-1" />
+                                    <span className="text-xs">사진 추가</span>
+                                </>
+                            )}
                             <input
                                 type="file"
                                 accept="image/*"
                                 multiple
                                 onChange={handleImageSelect}
+                                disabled={uploadingCount > 0}
                                 className="hidden"
                             />
                         </label>
@@ -191,14 +205,19 @@ export default function NewStartupLogPage() {
                     <div className="max-w-2xl mx-auto">
                         <button
                             type="submit"
-                            disabled={isLoading}
+                            disabled={isLoading || uploadingCount > 0}
                             className={`w-full py-4 rounded-xl flex items-center justify-center gap-2 text-lg font-bold text-white transition-all
-                                ${isLoading ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 shadow-lg hover:shadow-xl'}`}
+                                ${(isLoading || uploadingCount > 0) ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 shadow-lg hover:shadow-xl'}`}
                         >
                             {isLoading ? (
                                 <>
                                     <Loader2 className="w-6 h-6 animate-spin" />
                                     저장하는 중...
+                                </>
+                            ) : uploadingCount > 0 ? (
+                                <>
+                                    <Loader2 className="w-6 h-6 animate-spin" />
+                                    사진 업로드 중 ({uploadingCount})...
                                 </>
                             ) : (
                                 <>

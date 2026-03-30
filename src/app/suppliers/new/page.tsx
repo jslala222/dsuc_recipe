@@ -27,21 +27,34 @@ export default function NewSupplierPage() {
     const [notes, setNotes] = useState('');
 
     // 명함 이미지 상태
-    const [businessCard, setBusinessCard] = useState<{ blob: Blob; previewUrl: string } | null>(null);
+    const [businessCard, setBusinessCard] = useState<{ url: string; previewUrl: string } | null>(null);
+    const [uploadingCount, setUploadingCount] = useState(0);
 
     // 명함 이미지 선택 핸들러
     const handleCardSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (!e.target.files?.length) return;
         const file = e.target.files[0];
 
+        // 업로드 시작
+        setUploadingCount(prev => prev + 1);
+
         try {
             // 명함은 글씨가 잘 보여야 하므로 해상도를 높이고(1200px), 품질을 0.8로 설정
-            // 300KB 내외 목표
             const resized = await resizeImage(file, { maxWidth: 1200, maxHeight: 1200, quality: 0.8 });
-            setBusinessCard(resized);
+            
+            // 즉시 서버/R2로 업로드
+            const uploadedUrl = await uploadRecipeImage(resized.blob, 'suppliers');
+            
+            if (uploadedUrl) {
+                setBusinessCard({ url: uploadedUrl, previewUrl: resized.previewUrl });
+            } else {
+                throw new Error('업로드 실패');
+            }
         } catch (error) {
             console.error('이미지 처리 실패:', error);
             alert('이미지를 처리하는 중 오류가 발생했습니다.');
+        } finally {
+            setUploadingCount(prev => Math.max(0, prev - 1));
         }
     };
 
@@ -50,17 +63,11 @@ export default function NewSupplierPage() {
         e.preventDefault();
         if (!name.trim()) return alert('거래처명을 입력해주세요.');
         if (!phone.trim()) return alert('연락처를 입력해주세요.');
+        if (uploadingCount > 0) return alert('사진 업로드 중입니다. 잠시만 기다려주세요.');
 
         setIsLoading(true);
 
         try {
-            // 1. 명함 이미지 업로드 (있을 경우)
-            let businessCardUrl = null;
-            if (businessCard) {
-                // 기존 레시피 이미지 업로드 함수 재사용 (같은 버킷 사용)
-                businessCardUrl = await uploadRecipeImage(businessCard.blob);
-            }
-
             // 2. 거래처 정보 저장
             if (supabase) {
                 const { error } = await supabase
@@ -73,7 +80,7 @@ export default function NewSupplierPage() {
                         email,
                         address,
                         notes,
-                        business_card_url: businessCardUrl
+                        business_card_url: businessCard?.url || null
                     }]);
 
                 if (error) throw error;
@@ -120,16 +127,29 @@ export default function NewSupplierPage() {
                                 >
                                     <X className="w-5 h-5" />
                                 </button>
+                                {uploadingCount > 0 && (
+                                    <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
+                                        <Loader2 className="w-8 h-8 text-white animate-spin" />
+                                    </div>
+                                )}
                             </div>
                         ) : (
-                            <label className="w-full h-40 flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:border-teal-500 hover:bg-teal-50 transition-colors text-gray-400 hover:text-teal-500">
-                                <Camera className="w-8 h-8 mb-2" />
-                                <span className="font-medium">명함 촬영 또는 업로드</span>
-                                <span className="text-xs mt-1 text-gray-400">(자동으로 선명하게 보정됩니다)</span>
+                            <label className={`w-full h-40 flex flex-col items-center justify-center border-2 border-dashed rounded-xl cursor-pointer transition-colors
+                                ${uploadingCount > 0 ? 'bg-gray-100 border-gray-300 cursor-not-allowed' : 'border-gray-300 hover:border-teal-500 hover:bg-teal-50 text-gray-400 hover:text-teal-500'}`}>
+                                {uploadingCount > 0 ? (
+                                    <Loader2 className="w-8 h-8 animate-spin text-teal-500" />
+                                ) : (
+                                    <>
+                                        <Camera className="w-8 h-8 mb-2" />
+                                        <span className="font-medium">명함 촬영 또는 업로드</span>
+                                        <span className="text-xs mt-1 text-gray-400">(자동으로 선명하게 보정됩니다)</span>
+                                    </>
+                                )}
                                 <input
                                     type="file"
                                     accept="image/*"
                                     onChange={handleCardSelect}
+                                    disabled={uploadingCount > 0}
                                     className="hidden"
                                 />
                             </label>
@@ -241,14 +261,19 @@ export default function NewSupplierPage() {
                 <div className="pt-4">
                     <button
                         type="submit"
-                        disabled={isLoading}
+                        disabled={isLoading || uploadingCount > 0}
                         className={`w-full py-4 rounded-xl flex items-center justify-center gap-2 text-lg font-bold text-white transition-all
-                            ${isLoading ? 'bg-gray-400 cursor-not-allowed' : 'bg-teal-600 hover:bg-teal-700 shadow-lg hover:shadow-xl'}`}
+                            ${(isLoading || uploadingCount > 0) ? 'bg-gray-400 cursor-not-allowed' : 'bg-teal-600 hover:bg-teal-700 shadow-lg hover:shadow-xl'}`}
                     >
                         {isLoading ? (
                             <>
                                 <Loader2 className="w-6 h-6 animate-spin" />
                                 저장 중...
+                            </>
+                        ) : uploadingCount > 0 ? (
+                            <>
+                                <Loader2 className="w-6 h-6 animate-spin" />
+                                명함 업로드 중...
                             </>
                         ) : (
                             <>

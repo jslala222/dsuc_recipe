@@ -25,7 +25,8 @@ export default function NewAccountingPage() {
     const [category, setCategory] = useState('식자재');
     const [amount, setAmount] = useState('');
     const [description, setDescription] = useState('');
-    const [receiptImage, setReceiptImage] = useState<{ blob: Blob; previewUrl: string } | null>(null);
+    const [receiptImage, setReceiptImage] = useState<{ url: string; previewUrl: string } | null>(null);
+    const [uploadingCount, setUploadingCount] = useState(0);
 
     // 타입 변경 시 카테고리 초기화
     const handleTypeChange = (newType: '수입' | '지출') => {
@@ -38,12 +39,23 @@ export default function NewAccountingPage() {
         if (!e.target.files?.length) return;
         const file = e.target.files[0];
 
+        setUploadingCount(prev => prev + 1);
         try {
             const resized = await resizeImage(file);
-            setReceiptImage(resized);
+            
+            // 즉시 업로드 (receipts 폴더 지정)
+            const uploadedUrl = await uploadRecipeImage(resized.blob, 'receipts');
+            
+            if (uploadedUrl) {
+                setReceiptImage({ url: uploadedUrl, previewUrl: resized.previewUrl });
+            } else {
+                throw new Error('업로드 실패');
+            }
         } catch (error) {
             console.error('이미지 처리 실패:', error);
             alert('이미지를 처리하는 중 오류가 발생했습니다.');
+        } finally {
+            setUploadingCount(prev => Math.max(0, prev - 1));
         }
     };
 
@@ -51,16 +63,11 @@ export default function NewAccountingPage() {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!amount || isNaN(Number(amount))) return alert('금액을 올바르게 입력해주세요.');
+        if (uploadingCount > 0) return alert('사진 업로드 중입니다. 잠시만 기다려주세요.');
 
         setIsLoading(true);
 
         try {
-            // 1. 영수증 이미지 업로드
-            let receiptUrl = null;
-            if (receiptImage) {
-                receiptUrl = await uploadRecipeImage(receiptImage.blob);
-            }
-
             // 2. 장부 저장
             if (supabase) {
                 const { error } = await supabase
@@ -71,7 +78,7 @@ export default function NewAccountingPage() {
                         category,
                         amount: Number(amount),
                         description,
-                        receipt_url: receiptUrl
+                        receipt_url: receiptImage?.url || null
                     }]);
 
                 if (error) throw error;
@@ -191,15 +198,28 @@ export default function NewAccountingPage() {
                             >
                                 <X className="w-5 h-5" />
                             </button>
+                            {uploadingCount > 0 && (
+                                <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
+                                    <Loader2 className="w-8 h-8 text-white animate-spin" />
+                                </div>
+                            )}
                         </div>
                     ) : (
-                        <label className="w-full h-32 flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:border-purple-500 hover:bg-purple-50 transition-colors text-gray-400 hover:text-purple-500">
-                            <Camera className="w-8 h-8 mb-2" />
-                            <span className="font-medium">영수증 찍기 / 업로드</span>
+                        <label className={`w-full h-32 flex flex-col items-center justify-center border-2 border-dashed rounded-xl cursor-pointer transition-colors
+                            ${uploadingCount > 0 ? 'bg-gray-50 border-gray-300' : 'border-gray-300 hover:border-purple-500 hover:bg-purple-50 text-gray-400 hover:text-purple-500'}`}>
+                            {uploadingCount > 0 ? (
+                                <Loader2 className="w-8 h-8 animate-spin text-purple-500" />
+                            ) : (
+                                <>
+                                    <Camera className="w-8 h-8 mb-2" />
+                                    <span className="font-medium">영수증 찍기 / 업로드</span>
+                                </>
+                            )}
                             <input
                                 type="file"
                                 accept="image/*"
                                 onChange={handleImageSelect}
+                                disabled={uploadingCount > 0}
                                 className="hidden"
                             />
                         </label>
@@ -210,14 +230,19 @@ export default function NewAccountingPage() {
                 <div className="pt-4">
                     <button
                         type="submit"
-                        disabled={isLoading}
+                        disabled={isLoading || uploadingCount > 0}
                         className={`w-full py-4 rounded-xl flex items-center justify-center gap-2 text-lg font-bold text-white transition-all
-                            ${isLoading ? 'bg-gray-400 cursor-not-allowed' : 'bg-purple-600 hover:bg-purple-700 shadow-lg hover:shadow-xl'}`}
+                            ${(isLoading || uploadingCount > 0) ? 'bg-gray-400 cursor-not-allowed' : 'bg-purple-600 hover:bg-purple-700 shadow-lg hover:shadow-xl'}`}
                     >
                         {isLoading ? (
                             <>
                                 <Loader2 className="w-6 h-6 animate-spin" />
                                 저장 중...
+                            </>
+                        ) : uploadingCount > 0 ? (
+                            <>
+                                <Loader2 className="w-6 h-6 animate-spin" />
+                                영수증 업로드 중...
                             </>
                         ) : (
                             <>

@@ -15,6 +15,7 @@ const difficulties = ['쉬움', '보통', '어려움'];
 export default function NewRecipePage() {
     const router = useRouter();
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [uploadingCount, setUploadingCount] = useState(0); // 추가: 업로드 중인 사진 개수
     const [formData, setFormData] = useState({
         title: '',
         description: '',
@@ -64,6 +65,7 @@ export default function NewRecipePage() {
 
     // 단계 이미지 추가
     const addStepImage = async (index: number, file: File) => {
+        setUploadingCount(prev => prev + 1);
         try {
             const { resizeImage } = await import('@/lib/imageUtils');
             const { uploadRecipeImage } = await import('@/lib/supabase');
@@ -78,24 +80,33 @@ export default function NewRecipePage() {
                 return newSteps;
             });
 
-            // 2. 업로드
-            const publicUrl = await uploadRecipeImage(blob);
+            // 2. 업로드 (레시피 단계는 'dsuc-recipe/steps' 폴더 사용)
+            const publicUrl = await uploadRecipeImage(blob, 'dsuc-recipe/steps');
             if (publicUrl) {
-                // 실제 URL로 교체 (마지막 요소 - 단순화된 로직)
+                // 실제 URL로 교체
                 setSteps(prev => {
                     const newSteps = [...prev];
                     const currentImages = [...newSteps[index].images];
-                    // 미리보기 URL을 찾아서 교체하는 것이 안전하지만, 순서대로 추가되므로 마지막 것을 교체
-                    currentImages[currentImages.length - 1] = publicUrl;
+                    // 미리보기 URL을 찾아서 교체
+                    const lastIdx = currentImages.lastIndexOf(previewUrl);
+                    if (lastIdx !== -1) currentImages[lastIdx] = publicUrl;
                     newSteps[index] = { ...newSteps[index], images: currentImages };
                     return newSteps;
                 });
             } else {
+                // 실패 시 미리보기 제거
+                setSteps(prev => {
+                    const newSteps = [...prev];
+                    newSteps[index].images = newSteps[index].images.filter(img => img !== previewUrl);
+                    return newSteps;
+                });
                 alert('이미지 업로드 실패');
             }
         } catch (error) {
             console.error(error);
             alert('이미지 업로드 중 오류 발생');
+        } finally {
+            setUploadingCount(prev => Math.max(0, prev - 1));
         }
     };
 
@@ -334,6 +345,11 @@ export default function NewRecipePage() {
                                         {step.images && step.images.map((img, imgIdx) => (
                                             <div key={imgIdx} className="relative w-24 h-24 rounded-lg overflow-hidden border border-gray-200 group">
                                                 <img src={img} alt={`단계 ${index + 1} 사진 ${imgIdx + 1}`} className="w-full h-full object-cover" />
+                                                {img.startsWith('blob:') && (
+                                                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                                                        <Loader2 className="w-5 h-5 text-white animate-spin" />
+                                                    </div>
+                                                )}
                                                 <button
                                                     type="button"
                                                     onClick={() => removeStepImage(index, imgIdx)}
@@ -402,10 +418,15 @@ export default function NewRecipePage() {
                 <div className="sticky bottom-4 z-10">
                     <button
                         type="submit"
-                        disabled={isSubmitting}
+                        disabled={isSubmitting || uploadingCount > 0}
                         className="w-full py-4 bg-primary-600 hover:bg-primary-700 disabled:bg-gray-400 text-white font-bold rounded-2xl shadow-lg transition-all transform active:scale-95 flex items-center justify-center gap-2"
                     >
-                        {isSubmitting ? (
+                        {uploadingCount > 0 ? (
+                            <>
+                                <Loader2 className="w-5 h-5 animate-spin" />
+                                사진 업로드 중 ({uploadingCount})...
+                            </>
+                        ) : isSubmitting ? (
                             <>
                                 <Loader2 className="w-5 h-5 animate-spin" />
                                 저장 중...

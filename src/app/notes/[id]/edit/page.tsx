@@ -18,6 +18,7 @@ export default function EditNotePage() {
 
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
+    const [uploadingCount, setUploadingCount] = useState(0); // 업로드 중인 파일 개수
     const [formData, setFormData] = useState({
         title: '',
         content: '',
@@ -64,13 +65,33 @@ export default function EditNotePage() {
         for (const file of Array.from(files)) {
             const previewUrl = URL.createObjectURL(file);
             setFormData(prev => ({ ...prev, images: [...prev.images, previewUrl] }));
+            setUploadingCount(prev => prev + 1);
 
-            const uploadedUrl = await uploadRecipeImage(file);
-            if (uploadedUrl) {
+            try {
+                // R2 'notes' 폴더에 업로드
+                const uploadedUrl = await uploadRecipeImage(file, 'dsuc-recipe/notes');
+                
+                if (uploadedUrl) {
+                    setFormData(prev => ({
+                        ...prev,
+                        images: prev.images.map(img => img === previewUrl ? uploadedUrl : img)
+                    }));
+                } else {
+                    // 실패 시 미리보기 제거
+                    setFormData(prev => ({
+                        ...prev,
+                        images: prev.images.filter(img => img !== previewUrl)
+                    }));
+                    alert('사진 업로드에 실패했습니다.');
+                }
+            } catch (err) {
+                console.error('업로드 중 오류:', err);
                 setFormData(prev => ({
                     ...prev,
-                    images: prev.images.map(img => img === previewUrl ? uploadedUrl : img)
+                    images: prev.images.filter(img => img !== previewUrl)
                 }));
+            } finally {
+                setUploadingCount(prev => Math.max(0, prev - 1));
             }
         }
     }
@@ -138,15 +159,15 @@ export default function EditNotePage() {
 
                 <button
                     onClick={handleSubmit}
-                    disabled={isSaving}
+                    disabled={isSaving || uploadingCount > 0}
                     className="flex items-center gap-2 px-5 py-2.5 bg-amber-500 hover:bg-amber-600 disabled:bg-gray-300 text-white rounded-xl font-medium transition-colors"
                 >
-                    {isSaving ? (
+                    {isSaving || uploadingCount > 0 ? (
                         <Loader2 className="w-5 h-5 animate-spin" />
                     ) : (
                         <Save className="w-5 h-5" />
                     )}
-                    저장
+                    {uploadingCount > 0 ? `업로드 중 (${uploadingCount})` : '저장'}
                 </button>
             </div>
 
@@ -159,6 +180,11 @@ export default function EditNotePage() {
                         {formData.images.map((img, idx) => (
                             <div key={idx} className="aspect-square rounded-xl overflow-hidden relative group">
                                 <img src={img} alt="" className="w-full h-full object-cover" />
+                                {img.startsWith('blob:') && (
+                                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                                        <Loader2 className="w-6 h-6 text-white animate-spin" />
+                                    </div>
+                                )}
                                 <button
                                     type="button"
                                     onClick={() => removeImage(idx)}

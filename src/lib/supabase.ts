@@ -203,7 +203,7 @@ export const mockRecipes: Recipe[] = [
  * 브라우저(클라이언트)에서 서버 API(/api/upload)를 호출하면
  * 서버가 직접 Cloudflare R2에 저장합니다. (보안 구조)
  */
-export async function uploadRecipeImage(file: Blob | File): Promise<string | null> {
+export async function uploadRecipeImage(file: Blob | File, folder: string = 'dsuc-recipe/steps'): Promise<string | null> {
     try {
         // File 객체이면 그대로, Blob이면 File로 변환
         const fileObj = file instanceof File
@@ -213,7 +213,7 @@ export async function uploadRecipeImage(file: Blob | File): Promise<string | nul
         // 서버 API에 파일 전송 (FormData 형식)
         const formData = new FormData();
         formData.append('file', fileObj);
-        formData.append('folder', 'dsuc-recipe/steps');
+        formData.append('folder', folder);
 
         const response = await fetch('/api/upload', {
             method: 'POST',
